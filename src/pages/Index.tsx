@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CodeInput } from "@/components/CodeInput";
 import { ExplanationResults } from "@/components/ExplanationResults";
 import { useToast } from "@/components/ui/use-toast";
+import { getAllSamples } from "@/lib/sampleCodes";
 
 const SUPPORTED_LANGUAGES = [
   { id: "auto", name: "Auto-detect", icon: "🔍" },
@@ -31,48 +32,7 @@ const READING_LEVELS = [
   { id: "pro", name: "Professional", description: "Advanced concepts and details" }
 ];
 
-const SAMPLE_CODES = [
-  {
-    name: "FizzBuzz",
-    language: "python",
-    code: `def fizz_buzz(n):
-    for i in range(1, n + 1):
-        if i % 15 == 0:
-            print("FizzBuzz")
-        elif i % 3 == 0:
-            print("Fizz")
-        elif i % 5 == 0:
-            print("Buzz")
-        else:
-            print(i)
-
-fizz_buzz(20)`
-  },
-  {
-    name: "Binary Search",
-    language: "javascript",
-    code: `function binarySearch(arr, target) {
-    let left = 0;
-    let right = arr.length - 1;
-    
-    while (left <= right) {
-        const mid = Math.floor((left + right) / 2);
-        
-        if (arr[mid] === target) {
-            return mid;
-        } else if (arr[mid] < target) {
-            left = mid + 1;
-        } else {
-            right = mid - 1;
-        }
-    }
-    
-    return -1;
-}
-
-console.log(binarySearch([1, 3, 5, 7, 9], 5));`
-  }
-];
+const SAMPLE_CODES = getAllSamples();
 
 const Index = () => {
   const [code, setCode] = useState("");
@@ -94,34 +54,40 @@ const Index = () => {
 
     setIsLoading(true);
     try {
-      // Simulate API call for now - replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const response = await fetch('https://bsndnraokqpuwvqzxtcu.supabase.co/functions/v1/explain-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          code: code.trim(),
+          language: language,
+          level: readingLevel
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
       
-      const mockResults = {
-        summary: [
-          "This is a FizzBuzz implementation that prints numbers 1 to n",
-          "Numbers divisible by 3 print 'Fizz'",
-          "Numbers divisible by 5 print 'Buzz'", 
-          "Numbers divisible by both print 'FizzBuzz'"
-        ],
-        walkthrough: "Step-by-step explanation would go here...",
-        diagram: "graph TD\n    A[Start] --> B[Loop i from 1 to n]\n    B --> C{i % 15 == 0?}\n    C -->|Yes| D[Print FizzBuzz]\n    C -->|No| E{i % 3 == 0?}\n    E -->|Yes| F[Print Fizz]\n    E -->|No| G{i % 5 == 0?}\n    G -->|Yes| H[Print Buzz]\n    G -->|No| I[Print i]\n    D --> J[Next iteration]\n    F --> J\n    H --> J\n    I --> J\n    J --> K{i < n?}\n    K -->|Yes| B\n    K -->|No| L[End]",
-        quiz: {
-          questions: [
-            {
-              question: "What gets printed when i = 15?",
-              options: ["Fizz", "Buzz", "FizzBuzz", "15"],
-              correct: 2
-            }
-          ]
-        }
-      };
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      setResults(data);
       
-      setResults(mockResults);
+      toast({
+        title: "Code explained successfully!",
+        description: "Check out the explanation, diagram, and quiz below.",
+      });
+
     } catch (error) {
+      console.error('Explanation error:', error);
       toast({
         title: "Explanation failed",
-        description: "Something went wrong. Please try again.",
+        description: error instanceof Error ? error.message : "Something went wrong. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -269,15 +235,15 @@ const Index = () => {
                     <FileText className="h-4 w-4" />
                     Try Sample Code
                   </h3>
-                  <div className="space-y-3">
-                    {SAMPLE_CODES.map((sample, index) => (
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {SAMPLE_CODES.slice(0, 8).map((sample, index) => (
                       <button
                         key={index}
                         onClick={() => loadSample(sample)}
                         className="w-full p-3 text-left rounded-lg border hover:bg-accent/10 transition-colors"
                       >
-                        <div className="font-medium">{sample.name}</div>
-                        <div className="text-sm text-muted-foreground">
+                        <div className="font-medium text-sm">{sample.name}</div>
+                        <div className="text-xs text-muted-foreground mt-1">
                           <Badge variant="secondary" className="text-xs">
                             {sample.language}
                           </Badge>
