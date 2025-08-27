@@ -1,73 +1,248 @@
-# Welcome to your Lovable project
+# CodeQuest - AI-Powered Code Explainer
 
-## Project info
+Transform complex code into clear, beginner-friendly explanations with visual diagrams and interactive quizzes.
 
-**URL**: https://lovable.dev/projects/466fcfb4-8913-4891-af0d-86d85cd52e6a
+## Features
 
-## How can I edit this code?
+- **🤖 AI-Powered Explanations**: Get plain-English explanations of any code
+- **📊 Visual Flow Charts**: Auto-generated Mermaid diagrams showing code flow
+- **🧠 Interactive Quizzes**: Test understanding with contextual questions
+- **📝 Multi-Language Support**: JavaScript, TypeScript, Python, Java, C++, Go, SQL, HTML, CSS
+- **🎯 Adaptive Learning Levels**: From beginner to professional explanations
+- **♿ Accessibility First**: WCAG 2.1 AA compliant with keyboard navigation
+- **🎨 Beautiful UI**: Modern design with dark/light mode support
 
-There are several ways of editing your application.
+## Getting Started
 
-**Use Lovable**
+### Prerequisites
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/466fcfb4-8913-4891-af0d-86d85cd52e6a) and start prompting.
+- Node.js 18+ and npm
+- Modern web browser
 
-Changes made via Lovable will be committed automatically to this repo.
+### Installation
 
-**Use your preferred IDE**
+1. Clone the repository
+```bash
+git clone <repository-url>
+cd codequest
+```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+2. Install dependencies
+```bash
+npm install
+```
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+3. Start development server
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+4. Open [http://localhost:8080](http://localhost:8080) in your browser
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Environment Setup
 
-**Use GitHub Codespaces**
+Create a `.env.local` file with your preferred LLM provider:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```bash
+# Choose one or more providers
+OPENAI_API_KEY=your_openai_key
+ANTHROPIC_API_KEY=your_anthropic_key
+GOOGLE_API_KEY=your_google_key
+DEEPSEEK_API_KEY=your_deepseek_key
 
-## What technologies are used for this project?
+# Optional: Enable logging (development only)
+ALLOW_LOGGING=false
+```
 
-This project is built with:
+## Usage
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+1. **Paste Code**: Enter or upload your code in the editor
+2. **Select Language**: Auto-detect or manually choose the programming language
+3. **Choose Level**: Pick explanation complexity (12-year-old to professional)
+4. **Get Explanation**: View AI-generated explanations, diagrams, and quizzes
+5. **Take Quiz**: Test your understanding with interactive questions
 
-## How can I deploy this project?
+### Sample Codes
 
-Simply open [Lovable](https://lovable.dev/projects/466fcfb4-8913-4891-af0d-86d85cd52e6a) and click on Share -> Publish.
+Try these built-in examples:
+- FizzBuzz (Python)
+- Binary Search (JavaScript)
+- More samples in `/public/samples/`
 
-## Can I connect a custom domain to my Lovable project?
+## Technology Stack
 
-Yes, you can!
+- **Frontend**: React 18 + TypeScript + Vite
+- **Styling**: Tailwind CSS + shadcn/ui
+- **Animations**: Framer Motion
+- **Diagrams**: Mermaid
+- **State Management**: React Query
+- **Code Analysis**: Tree-sitter parsers
+- **AI Providers**: OpenAI, Anthropic, Google, DeepSeek
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Architecture
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+```
+src/
+├── components/          # Reusable UI components
+│   ├── ui/             # shadcn/ui components
+│   ├── CodeInput.tsx   # Code editor component
+│   ├── ExplanationResults.tsx
+│   └── MermaidDiagram.tsx
+├── pages/              # Page components
+│   └── Index.tsx       # Main application page
+├── lib/                # Utility libraries
+│   ├── analysis/       # Code analysis utilities
+│   ├── llm/           # LLM provider abstraction
+│   └── quiz/          # Quiz generation
+└── styles/            # Global styles
+```
+
+## API Endpoints
+
+### POST /api/explain
+Analyzes code and returns explanation, diagram, and quiz.
+
+**Request:**
+```json
+{
+  "code": "function example() { return 'hello'; }",
+  "language": "javascript",
+  "level": "15"
+}
+```
+
+**Response:**
+```json
+{
+  "summary": ["Function that returns hello"],
+  "walkthrough": "Step-by-step explanation...",
+  "mermaidDiagram": "graph TD...",
+  "quiz": {
+    "questions": [...],
+    "answers": [...],
+    "hints": [...]
+  }
+}
+```
+
+### POST /api/run
+Executes JavaScript/Python code in sandboxed environment.
+
+**Security Features:**
+- 2-second CPU timeout
+- 128MB memory limit
+- No file/network access
+- Safe execution environment
+
+## Development
+
+### Testing
+
+```bash
+# Unit tests
+npm run test
+
+# E2E tests
+npm run test:e2e
+
+# Test coverage
+npm run test:coverage
+```
+
+### Docker Development
+
+```bash
+# Start with Docker Compose
+docker-compose up -dev
+
+# Build production image
+docker build -t codequest .
+```
+
+### Code Quality
+
+```bash
+# Lint code
+npm run lint
+
+# Format code
+npm run format
+
+# Type check
+npm run type-check
+```
+
+## Deployment
+
+### Vercel (Recommended)
+
+1. Connect repository to Vercel
+2. Add environment variables
+3. Deploy automatically
+
+### Manual Deployment
+
+```bash
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+```
+
+## Security
+
+- Input sanitization for all code inputs
+- Sandboxed code execution
+- Rate limiting (basic in-memory)
+- No server-side code storage by default
+- Privacy-first design
+
+## Accessibility
+
+- WCAG 2.1 AA compliant
+- Keyboard navigation
+- Screen reader support
+- High contrast mode
+- Focus management
+
+## Contributing
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
+
+### Development Guidelines
+
+- Write TypeScript with strict mode
+- Follow component patterns
+- Add tests for new features
+- Update documentation
+- Ensure accessibility compliance
+
+## Future Enhancements
+
+- 📁 Multi-file project analysis
+- 🔗 GitHub repository import
+- 🏫 Classroom mode for educators
+- 📄 Export explanations to PDF
+- 🌍 Multi-language interface
+- 📊 Advanced analytics dashboard
+- 🎮 Gamification system
+- 🔌 VS Code extension
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## Support
+
+- 📧 Email: support@codequest.dev
+- 🐛 Issues: [GitHub Issues](https://github.com/codequest/issues)
+- 💬 Discussions: [GitHub Discussions](https://github.com/codequest/discussions)
+
+---
+
+Made with ❤️ for coding beginners everywhere
