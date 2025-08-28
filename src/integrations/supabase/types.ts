@@ -68,6 +68,92 @@ export type Database = {
         }
         Relationships: []
       }
+      quizzes: {
+        Row: {
+          answer: string | null
+          choices: Json | null
+          created_at: string | null
+          difficulty: string | null
+          hint: string | null
+          id: string
+          question: string | null
+          snippet_id: string | null
+        }
+        Insert: {
+          answer?: string | null
+          choices?: Json | null
+          created_at?: string | null
+          difficulty?: string | null
+          hint?: string | null
+          id?: string
+          question?: string | null
+          snippet_id?: string | null
+        }
+        Update: {
+          answer?: string | null
+          choices?: Json | null
+          created_at?: string | null
+          difficulty?: string | null
+          hint?: string | null
+          id?: string
+          question?: string | null
+          snippet_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quizzes_snippet_id_fkey"
+            columns: ["snippet_id"]
+            isOneToOne: false
+            referencedRelation: "snippets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      snippets: {
+        Row: {
+          code: string | null
+          created_at: string | null
+          diagram_url: string | null
+          explanation: string | null
+          id: string
+          language: string | null
+          mermaid_diagram: string | null
+          owner: string
+          status: string | null
+          title: string | null
+          trace_table: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string | null
+          diagram_url?: string | null
+          explanation?: string | null
+          id?: string
+          language?: string | null
+          mermaid_diagram?: string | null
+          owner: string
+          status?: string | null
+          title?: string | null
+          trace_table?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          code?: string | null
+          created_at?: string | null
+          diagram_url?: string | null
+          explanation?: string | null
+          id?: string
+          language?: string | null
+          mermaid_diagram?: string | null
+          owner?: string
+          status?: string | null
+          title?: string | null
+          trace_table?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

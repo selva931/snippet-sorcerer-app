@@ -1,6 +1,6 @@
-# CodeQuest - AI-Powered Code Explainer
+# Snippet Sorcerer Backend
 
-Transform complex code into clear, beginner-friendly explanations with visual diagrams and interactive quizzes.
+Production-ready backend system for Snippet Sorcerer - an AI-powered code explanation platform with Supabase integration.
 
 ## Features
 

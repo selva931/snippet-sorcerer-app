@@ -1,1 +1,13 @@
 project_id = "bsndnraokqpuwvqzxtcu"
+
+[functions.explain]
+verify_jwt = true
+
+[functions.snippet]
+verify_jwt = true
+
+[functions.regenerate]
+verify_jwt = true
+
+[functions.upload-diagram]
+verify_jwt = true
