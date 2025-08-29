@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Code2, Sparkles, BookOpen, Brain, Upload, FileText } from "lucide-react";
+import { Code2, Sparkles, BookOpen, Brain, Upload, FileText, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { CodeInput } from "@/components/CodeInput";
 import { ExplanationResults } from "@/components/ExplanationResults";
 import { useToast } from "@/components/ui/use-toast";
 import { getAllSamples } from "@/lib/sampleCodes";
+import { supabase } from "@/integrations/supabase/client";
 
 const SUPPORTED_LANGUAGES = [
   { id: "auto", name: "Auto-detect", icon: "🔍" },
@@ -40,9 +41,54 @@ const Index = () => {
   const [readingLevel, setReadingLevel] = useState("15");
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState(null);
+  const [user, setUser] = useState(null);
   const { toast } = useToast();
 
+  useEffect(() => {
+    // Get current user
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    getUser();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user || null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogin = async () => {
+    try {
+      const { error } = await supabase.auth.signInAnonymously();
+      if (error) throw error;
+      
+      toast({
+        title: "Signed in successfully!",
+        description: "You can now explain code snippets.",
+      });
+    } catch (error) {
+      console.error('Login error:', error);
+      toast({
+        title: "Login failed",
+        description: error instanceof Error ? error.message : "Something went wrong.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleExplain = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to explain code.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!code.trim()) {
       toast({
         title: "No code provided",
@@ -54,29 +100,34 @@ const Index = () => {
 
     setIsLoading(true);
     try {
-      const response = await fetch('https://bsndnraokqpuwvqzxtcu.supabase.co/functions/v1/explain-code', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('explain', {
+        body: {
+          title: 'Code Analysis',
+          language: language === "auto" ? "javascript" : language,
           code: code.trim(),
-          language: language,
-          level: readingLevel
-        }),
+          reading_level: readingLevel
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (error) {
+        throw new Error(error.message || 'Failed to explain code');
       }
 
-      const data = await response.json();
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
+      // Transform backend response to frontend format
+      const transformedResults = {
+        explanation: data.snippet.explanation,
+        diagram: data.snippet.mermaid_diagram,
+        trace: data.snippet.trace_table,
+        quizzes: data.quizzes.map(quiz => ({
+          question: quiz.question,
+          choices: quiz.choices,
+          answer: quiz.answer,
+          hint: quiz.hint,
+          difficulty: quiz.difficulty
+        }))
+      };
 
-      setResults(data);
+      setResults(transformedResults);
       
       toast({
         title: "Code explained successfully!",
@@ -198,24 +249,35 @@ const Index = () => {
 
                     {/* Action Buttons */}
                     <div className="flex gap-3">
-                      <Button 
-                        onClick={handleExplain}
-                        disabled={isLoading}
-                        className="gradient-button flex-1 md:flex-none"
-                        size="lg"
-                      >
-                        {isLoading ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                            Analyzing...
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="h-4 w-4 mr-2" />
-                            Explain Code
-                          </>
-                        )}
-                      </Button>
+                      {!user ? (
+                        <Button 
+                          onClick={handleLogin}
+                          className="gradient-button flex-1 md:flex-none"
+                          size="lg"
+                        >
+                          <LogIn className="h-4 w-4 mr-2" />
+                          Sign In to Continue
+                        </Button>
+                      ) : (
+                        <Button 
+                          onClick={handleExplain}
+                          disabled={isLoading}
+                          className="gradient-button flex-1 md:flex-none"
+                          size="lg"
+                        >
+                          {isLoading ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                              Analyzing...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-4 w-4 mr-2" />
+                              Explain Code
+                            </>
+                          )}
+                        </Button>
+                      )}
                       
                       <Button variant="outline" size="lg">
                         <Upload className="h-4 w-4 mr-2" />
