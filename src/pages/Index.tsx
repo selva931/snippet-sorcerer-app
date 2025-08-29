@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Code2, Sparkles, BookOpen, Brain, Upload, FileText, LogIn } from "lucide-react";
+import { Code2, Sparkles, BookOpen, Brain, Upload, FileText, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +12,8 @@ import { ExplanationResults } from "@/components/ExplanationResults";
 import { useToast } from "@/components/ui/use-toast";
 import { getAllSamples } from "@/lib/sampleCodes";
 import { supabase } from "@/integrations/supabase/client";
+import { Link, useNavigate } from "react-router-dom";
+import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 
 const SUPPORTED_LANGUAGES = [
   { id: "auto", name: "Auto-detect", icon: "🔍" },
@@ -41,46 +43,83 @@ const Index = () => {
   const [readingLevel, setReadingLevel] = useState("15");
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState(null);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [guestSession, setGuestSession] = useState<any>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    // Get current user
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-    };
-    getUser();
+    let mounted = true;
 
-    // Listen for auth changes
+    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+      
+      setSession(session);
       setUser(session?.user || null);
+      
+      if (event === 'SIGNED_IN') {
+        // Clear any guest session when user signs in
+        localStorage.removeItem('guestSession');
+        setGuestSession(null);
+      }
     });
 
-    return () => subscription.unsubscribe();
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
+      
+      setSession(session);
+      setUser(session?.user || null);
+      
+      // If no Supabase session, check for guest session
+      if (!session) {
+        const storedGuestSession = localStorage.getItem('guestSession');
+        if (storedGuestSession) {
+          try {
+            const parsed = JSON.parse(storedGuestSession);
+            // Check if guest session is still valid
+            if (new Date(parsed.expiresAt) > new Date()) {
+              setGuestSession(parsed);
+            } else {
+              localStorage.removeItem('guestSession');
+            }
+          } catch (error) {
+            console.error('Error parsing guest session:', error);
+            localStorage.removeItem('guestSession');
+          }
+        }
+      }
+      
+      setIsInitialized(true);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const handleLogin = async () => {
-    try {
-      const { error } = await supabase.auth.signInAnonymously();
-      if (error) throw error;
-      
-      toast({
-        title: "Signed in successfully!",
-        description: "You can now explain code snippets.",
-      });
-    } catch (error) {
-      console.error('Login error:', error);
-      toast({
-        title: "Login failed",
-        description: error instanceof Error ? error.message : "Something went wrong.",
-        variant: "destructive"
-      });
+  const isAuthenticated = user || guestSession;
+
+  const handleLogout = async () => {
+    if (user) {
+      await supabase.auth.signOut();
+    } else if (guestSession) {
+      localStorage.removeItem('guestSession');
+      setGuestSession(null);
     }
+    
+    toast({
+      title: "Signed out",
+      description: "You've been signed out successfully.",
+    });
   };
 
   const handleExplain = async () => {
-    if (!user) {
+    if (!isAuthenticated) {
       toast({
         title: "Authentication required",
         description: "Please sign in to explain code.",
@@ -100,32 +139,60 @@ const Index = () => {
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('explain', {
-        body: {
-          title: 'Code Analysis',
-          language: language === "auto" ? "javascript" : language,
-          code: code.trim(),
-          reading_level: readingLevel
-        }
-      });
-
-      if (error) {
-        throw new Error(error.message || 'Failed to explain code');
+      let response;
+      
+      if (user) {
+        // Use Supabase function for authenticated users
+        response = await supabase.functions.invoke('explain', {
+          body: {
+            title: 'Code Analysis',
+            language: language === "auto" ? "javascript" : language,
+            code: code.trim(),
+            reading_level: readingLevel
+          }
+        });
+      } else if (guestSession) {
+        // Use explain-code function for guest users (no auth required)
+        response = await supabase.functions.invoke('explain-code', {
+          body: {
+            code: code.trim(),
+            language: language === "auto" ? "javascript" : language,
+            level: readingLevel
+          }
+        });
       }
 
-      // Transform backend response to frontend format
-      const transformedResults = {
-        explanation: data.snippet.explanation,
-        diagram: data.snippet.mermaid_diagram,
-        trace: data.snippet.trace_table,
-        quizzes: data.quizzes.map(quiz => ({
-          question: quiz.question,
-          choices: quiz.choices,
-          answer: quiz.answer,
-          hint: quiz.hint,
-          difficulty: quiz.difficulty
-        }))
-      };
+      if (response?.error) {
+        throw new Error(response.error.message || 'Failed to explain code');
+      }
+
+      let transformedResults;
+
+      if (user && response?.data?.snippet) {
+        // Transform backend response for authenticated users
+        transformedResults = {
+          explanation: response.data.snippet.explanation,
+          diagram: response.data.snippet.mermaid_diagram,
+          trace: response.data.snippet.trace_table,
+          quizzes: response.data.quizzes.map((quiz: any) => ({
+            question: quiz.question,
+            choices: quiz.choices,
+            answer: quiz.answer,
+            hint: quiz.hint,
+            difficulty: quiz.difficulty
+          }))
+        };
+      } else if (guestSession && response?.data) {
+        // Use direct response for guest users
+        transformedResults = {
+          explanation: response.data.explanation,
+          diagram: response.data.mermaid,
+          trace: response.data.trace,
+          quizzes: response.data.quizzes || []
+        };
+      } else {
+        throw new Error('Invalid response format');
+      }
 
       setResults(transformedResults);
       
@@ -151,6 +218,17 @@ const Index = () => {
     setLanguage(sample.language);
   };
 
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
@@ -167,6 +245,24 @@ const Index = () => {
               <h1 className="text-4xl md:text-6xl font-bold gradient-text">
                 CodeQuest
               </h1>
+              {isAuthenticated && (
+                <div className="ml-4 flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleLogout}
+                    className="text-muted-foreground hover:text-primary"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                  </Button>
+                  {guestSession && (
+                    <Badge variant="outline" className="text-xs">
+                      Guest Session
+                    </Badge>
+                  )}
+                </div>
+              )}
             </div>
             <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-8">
               Paste any code and get clear explanations, visual diagrams, and interactive quizzes.
@@ -249,15 +345,16 @@ const Index = () => {
 
                     {/* Action Buttons */}
                     <div className="flex gap-3">
-                      {!user ? (
-                        <Button 
-                          onClick={handleLogin}
-                          className="gradient-button flex-1 md:flex-none"
-                          size="lg"
-                        >
-                          <LogIn className="h-4 w-4 mr-2" />
-                          Sign In to Continue
-                        </Button>
+                      {!isAuthenticated ? (
+                        <Link to="/auth">
+                          <Button 
+                            className="gradient-button flex-1 md:flex-none"
+                            size="lg"
+                          >
+                            <User className="h-4 w-4 mr-2" />
+                            Sign In to Continue
+                          </Button>
+                        </Link>
                       ) : (
                         <Button 
                           onClick={handleExplain}
